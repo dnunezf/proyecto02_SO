@@ -1,0 +1,17 @@
+# ninja log v6
+1	21	1748099917967870444	CMakeFiles/http_multiversion_server.dir/server/threaded.c.o	5f1468b6a4a0e5db
+2	25	1748099917968870353	CMakeFiles/http_multiversion_server.dir/server/forked.c.o	c57241af69c06eaf
+0	23	1748102430266369671	CMakeFiles/server_exec.dir/server/fifo.c.o	49505b38baee80a0
+1	23	1748102430267369676	CMakeFiles/server_exec.dir/server/pre_forked.c.o	b49aa57dce6bbeba
+1	37	1748099917967870444	CMakeFiles/http_multiversion_server.dir/server/main.c.o	8c86f5b2894eb9f5
+1	23	1748099917967870444	CMakeFiles/http_multiversion_server.dir/server/fifo.c.o	7c57bfdf3ba56598
+3	23	1748099917969870262	CMakeFiles/http_multiversion_server.dir/server/pre_forked.c.o	92b296d81bea2be9
+1	23	1748102430267369676	CMakeFiles/server_exec.dir/server/forked.c.o	bd0d95a25f116082
+0	13	1748103462297100079	CMakeFiles/client_exec.dir/Client/statistics.c.o	55ef1a276f48303e
+0	23	1748102430266369671	CMakeFiles/server_exec.dir/server/threaded.c.o	7915b17891080acd
+1	22	1748099917967870444	CMakeFiles/http_multiversion_server.dir/server/pre_threaded.c.o	61fd4f3dc4cf1ecf
+0	19	1748103284299696255	CMakeFiles/server_exec.dir/server/pre_threaded.c.o	96722d7a54e112c5
+0	13	1748103462297100079	CMakeFiles/client_exec.dir/Client/client.c.o	6bc6295f1a8093a3
+0	24	1748102266274410994	CMakeFiles/server_exec.dir/server/main.c.o	b2cc4107f82194d0
+19	31	1748103284318696173	server_exec	ad65c73be8c41962
+37	72	1748099918003867174	http_multiversion_server	f6703ee26a12aa72
