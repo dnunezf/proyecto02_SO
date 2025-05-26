@@ -15,7 +15,22 @@
 #ifndef COMMON_H
 #define COMMON_H
 
+#include <time.h>
+
 #define SERVER_PORT 8080
 #define RESOURCE_DIR "./resources"
+
+//Tiempo actual en segundos
+static time_t getCurrentTime() {
+    time_t rawtime;
+    time ( &rawtime );
+    return rawtime;
+}
+
+//Tiempo actual con formato
+static struct  tm* getTimestamp() {
+    const time_t time = getCurrentTime();
+    return localtime ( &time);
+}
 
 #endif //COMMON_H
