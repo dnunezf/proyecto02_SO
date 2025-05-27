@@ -83,7 +83,6 @@ void run_fifo() {
 }
 
 void handle_client(int client_fd) {
-    // SE LEE REQUEST Y RESPONDE AL CLIENTE
     char buffer[4096];
     int bytes_read = recv(client_fd, buffer, sizeof(buffer) - 1, 0);
 
@@ -95,12 +94,29 @@ void handle_client(int client_fd) {
     buffer[bytes_read] = '\0';
     printf("[FIFO] Request recibido:\n%s\n", buffer);
 
-    // RESPONDE CON EL CONTENIDO DE INDEX.HTML
-    char response[8192];
-    char filepath[256];
-    snprintf(filepath, sizeof(filepath), "%s/index.html", RESOURCE_DIR);
+    // EXTRAER PRIMERA LÍNEA (ej. "GET / HTTP/1.1")
+    char method[8], path[256];
+    sscanf(buffer, "%s %s", method, path);
+
+    // VERIFICAR Y LIMPIAR PATH
+    char resource[256];
+    if (strcmp(path, "/") == 0 || strcmp(path, "/favicon.ico") == 0) {
+        strcpy(resource, "index.html");
+    } else {
+        // QUITAR EL SLASH INICIAL
+        strncpy(resource, path + 1, sizeof(resource) - 1);
+        resource[sizeof(resource) - 1] = '\0';
+    }
+
+    // CONSTRUIR RUTA COMPLETA AL ARCHIVO
+    char filepath[512];
+    snprintf(filepath, sizeof(filepath), "%s/%s", RESOURCE_DIR, resource);
+
+    printf("[FIFO] Buscando archivo: %s\n", filepath);
 
     FILE *file = fopen(filepath, "r");
+
+    char response[8192];
     if (!file) {
         snprintf(response, sizeof(response),
             "HTTP/1.1 404 Not Found\r\n"
@@ -108,8 +124,10 @@ void handle_client(int client_fd) {
             "<html><body><h1>404 Recurso no encontrado :(</h1></body></html>\r\n");
     } else {
         char file_content[4096];
-        fread(file_content, 1, sizeof(file_content), file);
+        size_t read_bytes = fread(file_content, 1, sizeof(file_content) - 1, file);
+        file_content[read_bytes] = '\0';
         fclose(file);
+
         snprintf(response, sizeof(response),
             "HTTP/1.1 200 OK\r\n"
             "Content-Type: text/html\r\n\r\n"
