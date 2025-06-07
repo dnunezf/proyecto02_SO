@@ -131,6 +131,7 @@ void handle_client(int client_fd) {
             "HTTP/1.1 404 Not Found\r\n"
             "Content-Type: text/html\r\n\r\n"
             "<html><body><h1>404 Recurso no encontrado :(</h1></body></html>\r\n");
+        printf("%s no existe\n", filepath);
     } else {
         // Leer contenido del archivo y formar respuesta HTTP 200
         char file_content[4096];

@@ -18,7 +18,7 @@
 #include <time.h>
 
 #define SERVER_PORT 8080
-#define RESOURCE_DIR "./resources"
+#define RESOURCE_DIR "../resources"
 
 //Tiempo actual en segundos
 static time_t getCurrentTime() {
