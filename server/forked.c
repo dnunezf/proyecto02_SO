@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <signal.h>
 #include <arpa/inet.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -17,15 +18,28 @@
 // CANTIDAD MÁXIMA DE CONEXIONES EN ESPERA (en la cola del sistema operativo)
 #define BACKLOG 10
 
+// Declarar server_fd global para que pueda cerrarse desde el handler ---
+int server_fd;
+
+// Manejador de señal SIGINT ---
+void handle_sigint_forked(int sig) {
+    printf("\n[FORKED] Finalizando servidor por señal SIGINT...\n");
+    close(server_fd);
+    exit(0);
+}
+
 // Prototipo de función para atender a un cliente
 void handle_client_forked(int client_fd);
 
 void run_forked() {
-    int server_fd, client_fd;
+    int client_fd;
     struct sockaddr_in server_addr, client_addr;
     socklen_t client_size = sizeof(client_addr);
 
     printf("[FORKED] Iniciando servidor FORKED en el puerto %d...\n", SERVER_PORT);
+
+    // registrar handler de Ctrl+C
+    signal(SIGINT, handle_sigint_forked);
 
     // Crear socket del servidor (TCP/IP)
     if ((server_fd = socket(AF_INET, SOCK_STREAM, 0)) == -1) {
@@ -88,55 +102,3 @@ void run_forked() {
 
     close(server_fd);
 }
-
-void handle_client_forked(int client_fd) {
-    char buffer[4096];
-    int bytes_read = recv(client_fd, buffer, sizeof(buffer) - 1, 0);
-
-    if (bytes_read <= 0) {
-        perror("recv");
-        return;
-    }
-
-    buffer[bytes_read] = '\0';
-    printf("[FORKED] Request recibido:\n%s\n", buffer);
-
-    char method[8], path[256];
-    sscanf(buffer, "%s %s", method, path);
-
-    char resource[256];
-    if (strcmp(path, "/") == 0 || strcmp(path, "/favicon.ico") == 0) {
-        strcpy(resource, "index.html");
-    } else {
-        strncpy(resource, path + 1, sizeof(resource) - 1);
-        resource[sizeof(resource) - 1] = '\0';
-    }
-
-    char filepath[512];
-    snprintf(filepath, sizeof(filepath), "%s/%s", RESOURCE_DIR, resource);
-
-    printf("[FORKED] Buscando archivo: %s\n", filepath);
-
-    FILE *file = fopen(filepath, "r");
-    char response[8192];
-
-    if (!file) {
-        snprintf(response, sizeof(response),
-            "HTTP/1.1 404 Not Found\r\n"
-            "Content-Type: text/html\r\n\r\n"
-            "<html><body><h1>404 Recurso no encontrado :(</h1></body></html>\r\n");
-    } else {
-        char file_content[4096];
-        size_t read_bytes = fread(file_content, 1, sizeof(file_content) - 1, file);
-        file_content[read_bytes] = '\0';
-        fclose(file);
-
-        snprintf(response, sizeof(response),
-            "HTTP/1.1 200 OK\r\n"
-            "Content-Type: text/html\r\n\r\n"
-            "%s\r\n", file_content);
-    }
-
-    send(client_fd, response, strlen(response), 0);
-}
-
