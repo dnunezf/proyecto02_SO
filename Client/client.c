@@ -144,8 +144,8 @@ void parse_args(int argc, char *argv[]) {
 Lista tiemposAtencion;
 Lista tiemposEspera;
 pthread_mutex_t mutex;
-unsigned long BytesTotal = 0;
-
+unsigned long long BytesTotal = 0;
+long reqNum = 0;
 // Procedimiento que ejecutará cada hilo
 void* http_thread_routine(void* arg) {
 
@@ -181,7 +181,10 @@ void* http_thread_routine(void* arg) {
         espera[1] = get_time_ms();
         atencion[0] = get_time_ms();
         // Enviar petición HTTP
-        const char *http_request = "GET / HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n";
+        char http_request[512]; // Ajusta el tamaño según lo necesites
+        snprintf(http_request, sizeof(http_request),
+                 "GET /%s HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n", FILE_NAME);
+
         if (send(sock_fd, http_request, strlen(http_request), 0) == -1) {
             perror("send");
             close(sock_fd);
@@ -193,12 +196,11 @@ void* http_thread_routine(void* arg) {
         int bytes_received;
         int header_parsed = 0;
         char *body_start = NULL;
-        unsigned long contBytes = 0;
+        unsigned long long contBytes = 0;
 
         while ((bytes_received = recv(sock_fd, buffer, BUFFER_SIZE - 1, 0)) > 0) {
             contBytes += bytes_received;
             buffer[bytes_received] = '\0';
-
             /*if (!header_parsed) {
                 body_start = strstr(buffer, "\r\n\r\n");
                 if (body_start) {
@@ -217,10 +219,11 @@ void* http_thread_routine(void* arg) {
         insertarInicio(&tiemposAtencion, atencion[1] - atencion[0]);
         insertarInicio(&tiemposEspera, espera[1] - espera[0]);
         BytesTotal += contBytes;
+        reqNum++;
         pthread_mutex_unlock(&mutex);
-
         close(sock_fd);
     }
+
 
     pthread_exit(NULL);
 }
@@ -249,12 +252,19 @@ int main(int argc, char *argv[]) {
 
     long end = get_time_ms();
     long TTA = end - start;
-    printf("Tiempo total de atencion: %ld ms\n", TTA);
-    printf("Tiempo de espera promedio: %ld ms\n", calcularMedia(&tiemposEspera));
-    printf("Varianza de tiempos de espera: %ld ms\n", calcularVarianza(&tiemposEspera));
-    printf("Tiempo de atencion promedio: %ld ms\n", calcularMedia(&tiemposAtencion));
-    printf("Varianza de tiempo de atencion: %ld ms\n", calcularVarianza(&tiemposAtencion));
-    printf("Total de bytes recibidos: %lu B\n", BytesTotal);
+
+    unsigned long TEM = calcularMedia(&tiemposEspera);
+    unsigned long TEV = calcularVarianza(&tiemposEspera);
+    unsigned long TAM = calcularMedia(&tiemposAtencion);
+    unsigned long TAV = calcularVarianza(&tiemposAtencion);
+    printf("Tiempo total de atencion: %ld ms, %ld s\n", TTA, TTA/1000);
+    printf("Tiempo de espera promedio: %ld ms, %ld s\n", TEM, TEM/1000 );
+    printf("Varianza de tiempos de espera: %ld ms, %ld s\n",TEV, TEV/1000 );
+    printf("Tiempo de atencion promedio: %ld ms, %ld s\n",TAM, TAM/1000 );
+    printf("Varianza de tiempo de atencion: %ld ms, %ld s\n",TAV, TAV/1000);
+    printf("Total de bytes recibidos: %lu B, %lu MB\n", BytesTotal, BytesTotal/1048576);
+    printf("Numero de requests: %ld\n", reqNum);
+    printf("Numero de perdidas: %ld\n", (THREADS * NUM_REQUESTS) - reqNum);
 
     pthread_mutex_destroy(&mutex);
     return 0;

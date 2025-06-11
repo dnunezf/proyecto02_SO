@@ -89,6 +89,8 @@ void run_forked() {
     close(server_fd);
 }
 
+#define CHUNK_SIZE 4096
+
 void handle_client_forked(int client_fd) {
     char buffer[4096];
     int bytes_read = recv(client_fd, buffer, sizeof(buffer) - 1, 0);
@@ -99,7 +101,7 @@ void handle_client_forked(int client_fd) {
     }
 
     buffer[bytes_read] = '\0';
-    printf("[FORKED] Request recibido:\n%s\n", buffer);
+    printf("[FIFO] Request recibido:\n%s\n", buffer);
 
     char method[8], path[256];
     sscanf(buffer, "%s %s", method, path);
@@ -115,28 +117,44 @@ void handle_client_forked(int client_fd) {
     char filepath[512];
     snprintf(filepath, sizeof(filepath), "%s/%s", RESOURCE_DIR, resource);
 
-    printf("[FORKED] Buscando archivo: %s\n", filepath);
+    printf("[FIFO] Buscando archivo: %s\n", filepath);
 
-    FILE *file = fopen(filepath, "r");
-    char response[8192];
-
+    FILE *file = fopen(filepath, "rb");
     if (!file) {
-        snprintf(response, sizeof(response),
+        printf("[FIFO] No existe: %s\n", filepath);
+        const char *not_found_response =
             "HTTP/1.1 404 Not Found\r\n"
             "Content-Type: text/html\r\n\r\n"
-            "<html><body><h1>404 Recurso no encontrado :(</h1></body></html>\r\n");
-    } else {
-        char file_content[4096];
-        size_t read_bytes = fread(file_content, 1, sizeof(file_content) - 1, file);
-        file_content[read_bytes] = '\0';
-        fclose(file);
-
-        snprintf(response, sizeof(response),
-            "HTTP/1.1 200 OK\r\n"
-            "Content-Type: text/html\r\n\r\n"
-            "%s\r\n", file_content);
+            "<html><body><h1>404 Recurso no encontrado :(</h1></body></html>\r\n";
+        send(client_fd, not_found_response, strlen(not_found_response), 0);
+        return;
     }
 
-    send(client_fd, response, strlen(response), 0);
+    // Get file size
+    fseek(file, 0, SEEK_END);
+    long filesize = ftell(file);
+    rewind(file);
+
+    // Send headers
+    char header[256];
+    snprintf(header, sizeof(header),
+             "HTTP/1.1 200 OK\r\n"
+             "Content-Type: text/html\r\n"
+             "Content-Length: %ld\r\n"
+             "Connection: close\r\n\r\n", filesize);
+    send(client_fd, header, strlen(header), 0);
+
+    // Send file in chunks
+    char chunk[CHUNK_SIZE];
+    size_t n;
+    while ((n = fread(chunk, 1, CHUNK_SIZE, file)) > 0) {
+        if (send(client_fd, chunk, n, 0) < 0) {
+            perror("send");
+            break;
+        }
+    }
+
+    fclose(file);
 }
+
 

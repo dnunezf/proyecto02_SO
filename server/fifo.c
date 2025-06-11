@@ -89,8 +89,10 @@ void run_fifo() {
 }
 
 // Función que atiende una conexión específica
+#define CHUNK_SIZE 4096
+
 void handle_client(int client_fd) {
-    char buffer[4096];  // Buffer para almacenar el request HTTP
+    char buffer[4096];
     int bytes_read = recv(client_fd, buffer, sizeof(buffer) - 1, 0);
 
     if (bytes_read <= 0) {
@@ -98,53 +100,60 @@ void handle_client(int client_fd) {
         return;
     }
 
-    buffer[bytes_read] = '\0';  // Asegura que el string esté terminado
+    buffer[bytes_read] = '\0';
     printf("[FIFO] Request recibido:\n%s\n", buffer);
 
-    // Parseo de la primera línea del request: método y ruta
     char method[8], path[256];
     sscanf(buffer, "%s %s", method, path);
 
-    // Determinar el archivo a servir
     char resource[256];
     if (strcmp(path, "/") == 0 || strcmp(path, "/favicon.ico") == 0) {
-        // Si es la raíz o el ícono del navegador, servir index.html
         strcpy(resource, "index.html");
     } else {
-        // Quitar el slash inicial para obtener el nombre del archivo
         strncpy(resource, path + 1, sizeof(resource) - 1);
         resource[sizeof(resource) - 1] = '\0';
     }
 
-    // Construir la ruta completa al archivo solicitado
     char filepath[512];
     snprintf(filepath, sizeof(filepath), "%s/%s", RESOURCE_DIR, resource);
 
     printf("[FIFO] Buscando archivo: %s\n", filepath);
 
-    FILE *file = fopen(filepath, "r");
-
-    char response[8192];  // Buffer para almacenar la respuesta HTTP
+    FILE *file = fopen(filepath, "rb");
     if (!file) {
-        // Si el archivo no existe, enviar respuesta 404 personalizada
-        snprintf(response, sizeof(response),
+        printf("[FIFO] No existe: %s\n", filepath);
+        const char *not_found_response =
             "HTTP/1.1 404 Not Found\r\n"
             "Content-Type: text/html\r\n\r\n"
-            "<html><body><h1>404 Recurso no encontrado :(</h1></body></html>\r\n");
-        printf("%s no existe\n", filepath);
-    } else {
-        // Leer contenido del archivo y formar respuesta HTTP 200
-        char file_content[4096];
-        size_t read_bytes = fread(file_content, 1, sizeof(file_content) - 1, file);
-        file_content[read_bytes] = '\0';
-        fclose(file);
-
-        snprintf(response, sizeof(response),
-            "HTTP/1.1 200 OK\r\n"
-            "Content-Type: text/html\r\n\r\n"
-            "%s\r\n", file_content);
+            "<html><body><h1>404 Recurso no encontrado :(</h1></body></html>\r\n";
+        send(client_fd, not_found_response, strlen(not_found_response), 0);
+        return;
     }
 
-    // Enviar respuesta al cliente
-    send(client_fd, response, strlen(response), 0);
+    // Get file size
+    fseek(file, 0, SEEK_END);
+    long filesize = ftell(file);
+    rewind(file);
+
+    // Send headers
+    char header[256];
+    snprintf(header, sizeof(header),
+             "HTTP/1.1 200 OK\r\n"
+             "Content-Type: text/html\r\n"
+             "Content-Length: %ld\r\n"
+             "Connection: close\r\n\r\n", filesize);
+    send(client_fd, header, strlen(header), 0);
+
+    // Send file in chunks
+    char chunk[CHUNK_SIZE];
+    size_t n;
+    while ((n = fread(chunk, 1, CHUNK_SIZE, file)) > 0) {
+        if (send(client_fd, chunk, n, 0) < 0) {
+            perror("send");
+            break;
+        }
+    }
+
+    fclose(file);
 }
+
