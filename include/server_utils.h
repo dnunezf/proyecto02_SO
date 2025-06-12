@@ -21,6 +21,7 @@
 #include <string.h>
 #include <sys/socket.h>
 #include <sys/time.h>
+#include <pthread.h>
 
 void run_fifo();
 void run_threaded();
