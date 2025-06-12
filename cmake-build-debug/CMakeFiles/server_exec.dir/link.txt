@@ -1,1 +1,0 @@
-/usr/bin/cc -g -Wl,--dependency-file=CMakeFiles/server_exec.dir/link.d CMakeFiles/server_exec.dir/server/main.c.o CMakeFiles/server_exec.dir/server/fifo.c.o CMakeFiles/server_exec.dir/server/threaded.c.o CMakeFiles/server_exec.dir/server/pre_threaded.c.o CMakeFiles/server_exec.dir/server/forked.c.o CMakeFiles/server_exec.dir/server/pre_forked.c.o -o server_exec
