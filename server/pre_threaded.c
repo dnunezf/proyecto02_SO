@@ -100,56 +100,7 @@ void* worker_thread(void* arg) {
         printf("[PRE-THREADED] Atendiendo cliente en hilo %lu\n", pthread_self());
 
         // Reutiliza la lógica del modo FIFO para procesar la solicitud
-        char buffer[4096];
-        int bytes_read = recv(client_fd, buffer, sizeof(buffer) - 1, 0);
-
-        if (bytes_read <= 0) {
-            perror("recv");
-            close(client_fd);
-            continue;
-        }
-
-        buffer[bytes_read] = '\0';
-
-        // Extraer ruta solicitada del request HTTP
-        char method[8], path[256];
-        sscanf(buffer, "%s %s", method, path);
-
-        char resource[256];
-        if (strcmp(path, "/") == 0 || strcmp(path, "/favicon.ico") == 0) {
-            strcpy(resource, "index.html");
-        } else {
-            strncpy(resource, path + 1, sizeof(resource) - 1);
-            resource[sizeof(resource) - 1] = '\0';
-        }
-
-        char filepath[512];
-        snprintf(filepath, sizeof(filepath), "%s/%s", RESOURCE_DIR, resource);
-
-        FILE *file = fopen(filepath, "r");
-        char response[8192];
-
-        if (!file) {
-            // Respuesta personalizada para error 404
-            snprintf(response, sizeof(response),
-                     "HTTP/1.1 404 Not Found\r\n"
-                     "Content-Type: text/html\r\n\r\n"
-                     "<html><body><h1>404 Recurso no encontrado :(</h1></body></html>\r\n");
-        } else {
-            // Si se encuentra el archivo, se envía al cliente
-            char file_content[4096];
-            size_t read_bytes = fread(file_content, 1, sizeof(file_content) - 1, file);
-            file_content[read_bytes] = '\0';
-            fclose(file);
-
-            snprintf(response, sizeof(response),
-                     "HTTP/1.1 200 OK\r\n"
-                     "Content-Type: text/html\r\n\r\n"
-                     "%s\r\n", file_content);
-        }
-
-        send(client_fd, response, strlen(response), 0);
-        close(client_fd);
+        handle_client(client_fd);
     }
 
     return NULL;

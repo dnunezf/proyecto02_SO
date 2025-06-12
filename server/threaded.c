@@ -58,63 +58,7 @@ void* handle_client_thread(void* arg) {
     printf("[THREADED] Cliente conectado. Hilo: %lu\n", pthread_self());
 
     // --- Leer la petición HTTP del cliente ---
-    char buffer[4096];
-    int bytes_read = recv(client_fd, buffer, sizeof(buffer) - 1, 0);
-    if (bytes_read <= 0) {
-        perror("recv");
-        close(client_fd);
-        return NULL;
-    }
-
-    buffer[bytes_read] = '\0';  // Asegura terminación de string
-    printf("[THREADED] Request recibido:\n%s\n", buffer);
-
-    // --- Extraer método y ruta del request ---
-    char method[8], path[256];
-    sscanf(buffer, "%s %s", method, path);
-
-    // --- Determinar recurso solicitado ---
-    char resource[256];
-    if (strcmp(path, "/") == 0 || strcmp(path, "/favicon.ico") == 0) {
-        strcpy(resource, "index.html");  // Recurso por defecto
-    } else {
-        strncpy(resource, path + 1, sizeof(resource) - 1);  // Quita el '/'
-        resource[sizeof(resource) - 1] = '\0';
-    }
-
-    // --- Construir la ruta absoluta al recurso ---
-    char filepath[512];
-    snprintf(filepath, sizeof(filepath), "%s/%s", RESOURCE_DIR, resource);
-    printf("[THREADED] Buscando archivo: %s\n", filepath);
-
-    // --- Leer archivo solicitado y construir respuesta HTTP ---
-    FILE *file = fopen(filepath, "r");
-    char response[8192];
-
-    if (!file) {
-        // Si no se encuentra el recurso, responder con error 404
-        snprintf(response, sizeof(response),
-            "HTTP/1.1 404 Not Found\r\n"
-            "Content-Type: text/html\r\n\r\n"
-            "<html><body><h1>404 Recurso no encontrado :(</h1></body></html>\r\n");
-        printf("[THREADED] %s no existe\n", filepath);
-    } else {
-        // Leer contenido del archivo
-        char file_content[4096];
-        size_t read_bytes = fread(file_content, 1, sizeof(file_content) - 1, file);
-        file_content[read_bytes] = '\0';
-        fclose(file);
-
-        // Construir respuesta HTTP 200 OK
-        snprintf(response, sizeof(response),
-            "HTTP/1.1 200 OK\r\n"
-            "Content-Type: text/html\r\n\r\n"
-            "%s\r\n", file_content);
-    }
-
-    // --- Enviar respuesta al cliente ---
-    send(client_fd, response, strlen(response), 0);
-    close(client_fd);  // Cerrar conexión con cliente
+    handle_client(client_fd);
     printf("[THREADED] Cliente desconectado. Hilo %lu finalizado.\n", pthread_self());
 
     return NULL;

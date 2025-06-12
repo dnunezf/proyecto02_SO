@@ -12,6 +12,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include "server_utils.h"
+#include <pthread.h>
+
+extern pthread_mutex_t writingMutex;
 
 void print_usage(const char *prog_name) {
     printf("Uso: %s <modo> [cantidad]\n", prog_name);
@@ -24,6 +27,7 @@ void print_usage(const char *prog_name) {
 }
 
 int main(int argc, char *argv[]) {
+    pthread_mutex_init(&writingMutex, NULL);
     if (argc < 2) {
         print_usage(argv[0]);
         return EXIT_FAILURE;
@@ -67,5 +71,6 @@ int main(int argc, char *argv[]) {
         return EXIT_FAILURE;
     }
 
+    pthread_mutex_destroy(&writingMutex);
     return EXIT_SUCCESS;
 }

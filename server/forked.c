@@ -35,9 +35,7 @@ void* control_thread_forked(void* arg) {
     return NULL;
 }
 
-
 // Prototipo de función para atender a un cliente
-void handle_client_forked(int client_fd);
 
 void run_forked() {
     int client_fd;
@@ -108,7 +106,7 @@ void run_forked() {
         } else if (pid == 0) {
             // Proceso hijo
             close(server_fd_global_forked); // El hijo no necesita el socket del servidor
-            handle_client_forked(client_fd);
+            handle_client(client_fd);
             close(client_fd);
             printf("[FORKED] Cliente desconectado.\n");
             exit(EXIT_SUCCESS);

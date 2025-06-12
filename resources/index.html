@@ -2,10 +2,57 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Title</title>
+    <title>Servidor FIFO</title>
 </head>
 <body>
-    <h1>Servidor funcionando</h1>
-    <img src="https://gifdb.com/images/high/sleepy-fox-laying-down-1oiqb7awgs323fo7.gif">
+<h1>Servidor FIFO funcionando</h1>
+<img src="https://gifdb.com/images/high/sleepy-fox-laying-down-1oiqb7awgs323fo7.gif">
+<div>
+    <form id="uploadForm">
+        <input type="file" id="fileInput" name="file" required>
+        <button type="submit">Upload</button>
+    </form>
+
+    <script>
+        document.getElementById('uploadForm').addEventListener('submit', async function (e) {
+            e.preventDefault(); // prevent normal form submit
+
+            const fileInput = document.getElementById('fileInput');
+            const file = fileInput.files[0];
+            const uploadButton = this.querySelector('button');
+
+            if (file) {
+                uploadButton.disabled = true;
+                uploadButton.textContent = 'Subiendo...';
+
+                const filename = encodeURIComponent(file.name);
+                console.log("Uploading:", filename);
+
+                try {
+                    const response = await fetch('/' + filename, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/octet-stream'
+                        },
+                        body: file
+                    });
+
+                    if (response.ok) {
+                        alert('Archivo subido con éxito :)');
+                    } else {
+                        alert('Error al subir el archivo :(');
+                    }
+                } catch (error) {
+                    console.error('Error:', error);
+                    alert('Error al subir el archivo');
+                } finally {
+                    uploadButton.disabled = false;
+                    uploadButton.textContent = 'Upload';
+                }
+            }
+        });
+    </script>
+
+</div>
 </body>
 </html>

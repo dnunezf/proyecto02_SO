@@ -35,7 +35,7 @@ pid_t child_pids[MAX_CHILDREN];         // Arreglo para almacenar PIDs de hijos
 int num_children = 0;                   // Número real de hijos creados
 
 // --- Lógica de atención individual (compartida entre hijos) ---
-void handle_client_preforked(int client_fd) {
+/*void handle_client_preforked(int client_fd) {
     char buffer[4096];
     int bytes_read = recv(client_fd, buffer, sizeof(buffer) - 1, 0);
 
@@ -94,7 +94,7 @@ void handle_client_preforked(int client_fd) {
     close(client_fd);
     printf("[PRE-FORKED] Cliente atendido y desconectado.\n");
     fflush(stdout);  // Forzar salida inmediata
-}
+}*/
 
 // --- Manejador de señal Ctrl+C para finalizar todos los hijos ---
 void handle_sigint(int sig) {
@@ -175,7 +175,7 @@ void run_pre_forked(int k) {
 
                 printf("[PRE-FORKED] Proceso %d aceptó una conexión.\n", getpid());
                 fflush(stdout);
-                handle_client_preforked(client_fd);
+                handle_client(client_fd);
             }
 
             // Nunca se alcanza

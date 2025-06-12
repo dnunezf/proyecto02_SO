@@ -47,7 +47,6 @@ void *control_thread(void *arg) {
 }
 
 // Prototipo de función para atender a un cliente
-void handle_client(int client_fd);
 
 void run_fifo() {
     int client_fd;
@@ -122,74 +121,5 @@ void run_fifo() {
     // Nunca se llega aquí, pero por buena práctica
     close(server_fd_global);
     printf("[FIFO] Servidor finalizado.\n");
-}
-
-// Función que atiende una conexión específica
-#define CHUNK_SIZE 4096
-
-void handle_client(int client_fd) {
-    char buffer[4096];
-    int bytes_read = recv(client_fd, buffer, sizeof(buffer) - 1, 0);
-
-    if (bytes_read <= 0) {
-        perror("recv");
-        return;
-    }
-
-    buffer[bytes_read] = '\0';
-    printf("[FIFO] Request recibido:\n%s\n", buffer);
-
-    char method[8], path[256];
-    sscanf(buffer, "%s %s", method, path);
-
-    char resource[256];
-    if (strcmp(path, "/") == 0 || strcmp(path, "/favicon.ico") == 0) {
-        strcpy(resource, "index.html");
-    } else {
-        strncpy(resource, path + 1, sizeof(resource) - 1);
-        resource[sizeof(resource) - 1] = '\0';
-    }
-
-    char filepath[512];
-    snprintf(filepath, sizeof(filepath), "%s/%s", RESOURCE_DIR, resource);
-
-    printf("[FIFO] Buscando archivo: %s\n", filepath);
-
-    FILE *file = fopen(filepath, "rb");
-    if (!file) {
-        printf("[FIFO] No existe: %s\n", filepath);
-        const char *not_found_response =
-            "HTTP/1.1 404 Not Found\r\n"
-            "Content-Type: text/html\r\n\r\n"
-            "<html><body><h1>404 Recurso no encontrado :(</h1></body></html>\r\n";
-        send(client_fd, not_found_response, strlen(not_found_response), 0);
-        return;
-    }
-
-    // Get file size
-    fseek(file, 0, SEEK_END);
-    long filesize = ftell(file);
-    rewind(file);
-
-    // Send headers
-    char header[256];
-    snprintf(header, sizeof(header),
-             "HTTP/1.1 200 OK\r\n"
-             "Content-Type: text/html\r\n"
-             "Content-Length: %ld\r\n"
-             "Connection: close\r\n\r\n", filesize);
-    send(client_fd, header, strlen(header), 0);
-
-    // Send file in chunks
-    char chunk[CHUNK_SIZE];
-    size_t n;
-    while ((n = fread(chunk, 1, CHUNK_SIZE, file)) > 0) {
-        if (send(client_fd, chunk, n, 0) < 0) {
-            perror("send");
-            break;
-        }
-    }
-
-    fclose(file);
 }
 
