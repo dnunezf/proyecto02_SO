@@ -1,4 +1,4 @@
-/home/f0x/CLionProjects/proyecto02_SO/cmake-build-debug/CMakeFiles/server_exec.dir
-/home/f0x/CLionProjects/proyecto02_SO/cmake-build-debug/CMakeFiles/client_exec.dir
-/home/f0x/CLionProjects/proyecto02_SO/cmake-build-debug/CMakeFiles/edit_cache.dir
-/home/f0x/CLionProjects/proyecto02_SO/cmake-build-debug/CMakeFiles/rebuild_cache.dir
+/home/david/Proyecto 02 - S.O/http_multiversion_server/cmake-build-debug/CMakeFiles/server_exec.dir
+/home/david/Proyecto 02 - S.O/http_multiversion_server/cmake-build-debug/CMakeFiles/client_exec.dir
+/home/david/Proyecto 02 - S.O/http_multiversion_server/cmake-build-debug/CMakeFiles/edit_cache.dir
+/home/david/Proyecto 02 - S.O/http_multiversion_server/cmake-build-debug/CMakeFiles/rebuild_cache.dir

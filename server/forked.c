@@ -11,25 +11,52 @@
 #include <netinet/in.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+#include <pthread.h>
 #include "../include/server_utils.h"
 #include "../include/common.h"
 
 // CANTIDAD MÁXIMA DE CONEXIONES EN ESPERA (en la cola del sistema operativo)
 #define BACKLOG 10
 
+int server_fd_global_forked;
+
+// Hilo que espera "KILL"
+void* control_thread_forked(void* arg) {
+    char input[100];
+    while (1) {
+        if (fgets(input, sizeof(input), stdin) != NULL) {
+            if (strncmp(input, "KILL", 4) == 0) {
+                printf("[FORKED] Comando KILL recibido. Cerrando servidor...\n");
+                close(server_fd_global_forked);
+                exit(0);  // Finaliza el proceso padre y detiene el servidor
+            }
+        }
+    }
+    return NULL;
+}
+
+
 // Prototipo de función para atender a un cliente
 void handle_client_forked(int client_fd);
 
 void run_forked() {
-    int server_fd, client_fd;
+    int client_fd;
     struct sockaddr_in server_addr, client_addr;
     socklen_t client_size = sizeof(client_addr);
 
     printf("[FORKED] Iniciando servidor FORKED en el puerto %d...\n", SERVER_PORT);
 
     // Crear socket del servidor (TCP/IP)
-    if ((server_fd = socket(AF_INET, SOCK_STREAM, 0)) == -1) {
+    if ((server_fd_global_forked = socket(AF_INET, SOCK_STREAM, 0)) == -1) {
         perror("socket");
+        exit(EXIT_FAILURE);
+    }
+
+    // Reutilizar dirección/puerto
+    int opt = 1;
+    if (setsockopt(server_fd_global_forked, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) == -1) {
+        perror("setsockopt");
+        close(server_fd_global_forked);
         exit(EXIT_FAILURE);
     }
 
@@ -40,16 +67,24 @@ void run_forked() {
     memset(&(server_addr.sin_zero), '\0', 8);    // Relleno requerido
 
     // Asociar socket con la dirección y puerto
-    if (bind(server_fd, (struct sockaddr *)&server_addr, sizeof(server_addr)) == -1) {
+    if (bind(server_fd_global_forked, (struct sockaddr *)&server_addr, sizeof(server_addr)) == -1) {
         perror("bind");
-        close(server_fd);
+        close(server_fd_global_forked);
         exit(EXIT_FAILURE);
     }
 
     // Escuchar conexiones entrantes
-    if (listen(server_fd, BACKLOG) == -1) {
+    if (listen(server_fd_global_forked, BACKLOG) == -1) {
         perror("listen");
-        close(server_fd);
+        close(server_fd_global_forked);
+        exit(EXIT_FAILURE);
+    }
+
+    // Lanzar hilo para monitorear comando KILL
+    pthread_t control_tid;
+    if (pthread_create(&control_tid, NULL, control_thread_forked, NULL) != 0) {
+        perror("pthread_create");
+        close(server_fd_global_forked);
         exit(EXIT_FAILURE);
     }
 
@@ -57,10 +92,10 @@ void run_forked() {
 
     // Bucle infinito: aceptar y atender un cliente a la vez
     while (1) {
-        client_fd = accept(server_fd, (struct sockaddr *)&client_addr, &client_size);
+        client_fd = accept(server_fd_global_forked, (struct sockaddr *)&client_addr, &client_size);
         if (client_fd == -1) {
-            perror("accept");
-            continue;
+            perror("[FORKED] accept cancelado o falló");
+            break;
         }
 
         printf("[FORKED] Cliente conectado.\n");
@@ -72,7 +107,7 @@ void run_forked() {
             continue;
         } else if (pid == 0) {
             // Proceso hijo
-            close(server_fd); // El hijo no necesita el socket del servidor
+            close(server_fd_global_forked); // El hijo no necesita el socket del servidor
             handle_client_forked(client_fd);
             close(client_fd);
             printf("[FORKED] Cliente desconectado.\n");
@@ -86,7 +121,8 @@ void run_forked() {
         }
     }
 
-    close(server_fd);
+    close(server_fd_global_forked);
+    printf("[FORKED] Servidor finalizado.\n");
 }
 
 #define CHUNK_SIZE 4096

@@ -40,9 +40,26 @@ int queue_start = 0;
 int queue_end = 0;
 int queue_count = 0;
 
+int server_fd_global_pre_threaded;
+
 // Variables para sincronización entre hilos
 pthread_mutex_t queue_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t queue_not_empty = PTHREAD_COND_INITIALIZER;
+
+// Hilo que espera "KILL" en stdin
+void* control_thread_pre_threaded(void* arg) {
+    char input[100];
+    while (1) {
+        if (fgets(input, sizeof(input), stdin) != NULL) {
+            if (strncmp(input, "KILL", 4) == 0) {
+                printf("[PRE-THREADED] Comando KILL recibido. Cerrando servidor...\n");
+                close(server_fd_global_pre_threaded);
+                exit(0);  // Termina todo el proceso
+            }
+        }
+    }
+    return NULL;
+}
 
 // Agrega una conexión al final de la cola (bloquea si la cola está llena)
 void enqueue(int client_fd) {
@@ -140,15 +157,23 @@ void* worker_thread(void* arg) {
 
 // Función principal para levantar el servidor en modo Pre-Threaded
 void run_pre_threaded(int k) {
-    int server_fd, client_fd;
+    int client_fd;
     struct sockaddr_in server_addr, client_addr;
     socklen_t client_size = sizeof(client_addr);
 
     printf("[PRE-THREADED] Iniciando servidor con %d hilos...\n", k);
 
     // Crear socket del servidor
-    if ((server_fd = socket(AF_INET, SOCK_STREAM, 0)) == -1) {
+    if ((server_fd_global_pre_threaded = socket(AF_INET, SOCK_STREAM, 0)) == -1) {
         perror("socket");
+        exit(EXIT_FAILURE);
+    }
+
+    // Reutilizar dirección y puerto (evitar "address already in use")
+    int opt = 1;
+    if (setsockopt(server_fd_global_pre_threaded, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) == -1) {
+        perror("setsockopt");
+        close(server_fd_global_pre_threaded);
         exit(EXIT_FAILURE);
     }
 
@@ -158,15 +183,23 @@ void run_pre_threaded(int k) {
     server_addr.sin_addr.s_addr = INADDR_ANY;
     memset(&(server_addr.sin_zero), '\0', 8);
 
-    if (bind(server_fd, (struct sockaddr *)&server_addr, sizeof(server_addr)) == -1) {
+    if (bind(server_fd_global_pre_threaded, (struct sockaddr *)&server_addr, sizeof(server_addr)) == -1) {
         perror("bind");
-        close(server_fd);
+        close(server_fd_global_pre_threaded);
         exit(EXIT_FAILURE);
     }
 
-    if (listen(server_fd, BACKLOG) == -1) {
+    if (listen(server_fd_global_pre_threaded, BACKLOG) == -1) {
         perror("listen");
-        close(server_fd);
+        close(server_fd_global_pre_threaded);
+        exit(EXIT_FAILURE);
+    }
+
+    // Lanzar hilo de control que escucha "KILL"
+    pthread_t control_tid;
+    if (pthread_create(&control_tid, NULL, control_thread_pre_threaded, NULL) != 0) {
+        perror("pthread_create (control_thread)");
+        close(server_fd_global_pre_threaded);
         exit(EXIT_FAILURE);
     }
 
@@ -180,14 +213,15 @@ void run_pre_threaded(int k) {
 
     // Aceptar conexiones y colocarlas en la cola
     while (1) {
-        client_fd = accept(server_fd, (struct sockaddr *)&client_addr, &client_size);
+        client_fd = accept(server_fd_global_pre_threaded, (struct sockaddr *)&client_addr, &client_size);
         if (client_fd == -1) {
-            perror("accept");
-            continue;
+            perror("[PRE-THREADED] accept cancelado o falló");
+            break;
         }
 
         enqueue(client_fd);  // Agrega la conexión a la cola
     }
 
-    close(server_fd);
+    close(server_fd_global_pre_threaded);
+    printf("[PRE-THREADED] Servidor finalizado.\n");
 }

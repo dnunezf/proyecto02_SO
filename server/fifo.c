@@ -21,25 +21,52 @@
 #include <arpa/inet.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <pthread.h>
+#include <signal.h>
 #include "../include/server_utils.h"
 #include "../include/common.h"
 
 // CANTIDAD MÁXIMA DE CONEXIONES EN ESPERA (en la cola del sistema operativo)
 #define BACKLOG 10
 
+int server_fd_global; // Global para poder cerrarlo desde otro hilo
+
+// Hilo que espera "KILL"
+void *control_thread(void *arg) {
+    char input[100];
+    while (1) {
+        if (fgets(input, sizeof(input), stdin) != NULL) {
+            if (strncmp(input, "KILL", 4) == 0) {
+                printf("[FIFO] Comando KILL recibido. Cerrando servidor...\n");
+                close(server_fd_global);
+                exit(0); // Termina todo el proceso
+            }
+        }
+    }
+    return NULL;
+}
+
 // Prototipo de función para atender a un cliente
 void handle_client(int client_fd);
 
 void run_fifo() {
-    int server_fd, client_fd;
+    int client_fd;
     struct sockaddr_in server_addr, client_addr;
     socklen_t client_size = sizeof(client_addr);
 
     printf("[FIFO] Iniciando servidor FIFO en el puerto %d...\n", SERVER_PORT);
 
     // Crear socket del servidor (TCP/IP)
-    if ((server_fd = socket(AF_INET, SOCK_STREAM, 0)) == -1) {
+    if ((server_fd_global = socket(AF_INET, SOCK_STREAM, 0)) == -1) {
         perror("socket");
+        exit(EXIT_FAILURE);
+    }
+
+    // Permitir reutilizar el puerto
+    int opt = 1;
+    if (setsockopt(server_fd_global, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) == -1) {
+        perror("setsockopt");
+        close(server_fd_global);
         exit(EXIT_FAILURE);
     }
 
@@ -50,16 +77,24 @@ void run_fifo() {
     memset(&(server_addr.sin_zero), '\0', 8);    // Relleno requerido
 
     // Asociar socket con la dirección y puerto
-    if (bind(server_fd, (struct sockaddr *)&server_addr, sizeof(server_addr)) == -1) {
+    if (bind(server_fd_global, (struct sockaddr *)&server_addr, sizeof(server_addr)) == -1) {
         perror("bind");
-        close(server_fd);
+        close(server_fd_global);
         exit(EXIT_FAILURE);
     }
 
     // Escuchar conexiones entrantes
-    if (listen(server_fd, BACKLOG) == -1) {
+    if (listen(server_fd_global, BACKLOG) == -1) {
         perror("listen");
-        close(server_fd);
+        close(server_fd_global);
+        exit(EXIT_FAILURE);
+    }
+
+    // Iniciar hilo de control
+    pthread_t thread_id;
+    if (pthread_create(&thread_id, NULL, control_thread, NULL) != 0) {
+        perror("pthread_create");
+        close(server_fd_global);
         exit(EXIT_FAILURE);
     }
 
@@ -68,10 +103,10 @@ void run_fifo() {
     // Bucle infinito: aceptar y atender un cliente a la vez
     while (1) {
         // Esperar y aceptar una conexión (bloqueante)
-        client_fd = accept(server_fd, (struct sockaddr *)&client_addr, &client_size);
+        client_fd = accept(server_fd_global, (struct sockaddr *)&client_addr, &client_size);
         if (client_fd == -1) {
-            perror("accept");
-            continue;  // Si falla, intenta la siguiente conexión
+            perror("[FIFO] accept cancelado o falló");
+            break;
         }
 
         printf("[FIFO] Cliente conectado.\n");
@@ -85,7 +120,8 @@ void run_fifo() {
     }
 
     // Nunca se llega aquí, pero por buena práctica
-    close(server_fd);
+    close(server_fd_global);
+    printf("[FIFO] Servidor finalizado.\n");
 }
 
 // Función que atiende una conexión específica
