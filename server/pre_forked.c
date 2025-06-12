@@ -24,6 +24,7 @@
 #include <arpa/inet.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <pthread.h>
 #include "../include/server_utils.h"
 #include "../include/common.h"
 
@@ -33,6 +34,8 @@
 int server_fd;                          // Socket del servidor
 pid_t child_pids[MAX_CHILDREN];         // Arreglo para almacenar PIDs de hijos
 int num_children = 0;                   // Número real de hijos creados
+
+pthread_t kill_monitor_thread;
 
 // --- Lógica de atención individual (compartida entre hijos) ---
 /*void handle_client_preforked(int client_fd) {
@@ -115,6 +118,18 @@ void handle_sigint(int sig) {
     exit(0);
 }
 
+// Hilo que espera "KILL"
+void* control_thread_preforked(void* arg) {
+    char input[100];
+    while (fgets(input, sizeof(input), stdin) != NULL) {
+        if (strncmp(input, "KILL", 4) == 0) {
+            printf("[PRE-FORKED] Comando KILL recibido. Cerrando servidor...\n");
+            handle_sigint(SIGTERM);  // Ejecuta el mismo flujo que Ctrl+C
+        }
+    }
+    return NULL;
+}
+
 // --- Función principal del modo Pre-Forked ---
 void run_pre_forked(int k) {
     struct sockaddr_in server_addr;
@@ -125,6 +140,14 @@ void run_pre_forked(int k) {
     // Crear socket TCP
     if ((server_fd = socket(AF_INET, SOCK_STREAM, 0)) == -1) {
         perror("socket");
+        exit(EXIT_FAILURE);
+    }
+
+    // Permitir reutilizar dirección/puerto
+    int opt = 1;
+    if (setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) == -1) {
+        perror("setsockopt");
+        close(server_fd);
         exit(EXIT_FAILURE);
     }
 
@@ -150,6 +173,13 @@ void run_pre_forked(int k) {
 
     // Registrar manejador de Ctrl+C
     signal(SIGINT, handle_sigint);
+
+    // Lanzar hilo de control para escuchar "KILL"
+    if (pthread_create(&kill_monitor_thread, NULL, control_thread_preforked, NULL) != 0) {
+        perror("pthread_create (KILL monitor)");
+        close(server_fd);
+        exit(EXIT_FAILURE);
+    }
 
     // Crear K procesos hijos
     for (int i = 0; i < k && i < MAX_CHILDREN; i++) {
@@ -188,7 +218,7 @@ void run_pre_forked(int k) {
     }
 
     // Proceso padre queda esperando señales (ej. Ctrl+C)
-    printf("[PRE-FORKED] Proceso padre esperando señales (Ctrl+C para terminar).\n");
+    printf("[PRE-FORKED] Proceso padre esperando señales (KILL para terminar).\n");
     fflush(stdout);
 
     while (1) pause();
