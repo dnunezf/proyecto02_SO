@@ -101,6 +101,7 @@ void* worker_thread(void* arg) {
 
         // Reutiliza la lógica del modo FIFO para procesar la solicitud
         handle_client(client_fd);
+        close(client_fd);
     }
 
     return NULL;

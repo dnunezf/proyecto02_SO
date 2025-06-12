@@ -112,8 +112,6 @@ void handle_sigint(int sig) {
     for (int i = 0; i < num_children; i++) {
         waitpid(child_pids[i], NULL, 0);
     }
-
-    close(server_fd);
     printf("[PRE-FORKED] Servidor finalizado correctamente.\n");
     exit(0);
 }
@@ -206,6 +204,7 @@ void run_pre_forked(int k) {
                 printf("[PRE-FORKED] Proceso %d aceptó una conexión.\n", getpid());
                 fflush(stdout);
                 handle_client(client_fd);
+                close(client_fd);
             }
 
             // Nunca se alcanza

@@ -60,7 +60,7 @@ void* handle_client_thread(void* arg) {
     // --- Leer la petición HTTP del cliente ---
     handle_client(client_fd);
     printf("[THREADED] Cliente desconectado. Hilo %lu finalizado.\n", pthread_self());
-
+    close(client_fd);
     return NULL;
 }
 

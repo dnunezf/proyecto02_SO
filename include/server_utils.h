@@ -21,6 +21,7 @@
 #include <string.h>
 #include <sys/socket.h>
 #include <sys/time.h>
+#include <pthread.h>
 
 void run_fifo();
 void run_threaded();
@@ -135,7 +136,6 @@ printf("[FIFO] Buscando archivo: %s\n", filepath);
 FILE *file = fopen(filepath, "rb");*/
 
 static void handle_client(const int client_fd) {
-
     char buffer[CHUNK_SIZE];
     int total_received = 0;
     int bytes_read;
@@ -221,6 +221,6 @@ static void handle_client(const int client_fd) {
     printf("Request procesado en: %ld ms, %ld s\n", TTA, TTA/1000);
 
     if (file) fclose(file);
-}
 
+}
 #endif // SERVER_UTILS_H

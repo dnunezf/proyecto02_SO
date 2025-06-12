@@ -112,9 +112,8 @@ void run_fifo() {
 
         // Atender al cliente (recibir, procesar, responder)
         handle_client(client_fd);
-
-        // Cerrar conexión con el cliente actual
         close(client_fd);
+        // Cerrar conexión con el cliente actual
         printf("[FIFO] Cliente desconectado.\n");
     }
 
