@@ -103,6 +103,11 @@ void run_fifo() {
     while (1) {
         // Esperar y aceptar una conexión (bloqueante)
         client_fd = accept(server_fd_global, (struct sockaddr *)&client_addr, &client_size);
+        struct timeval timeout; //Procesar timeout en caso de que se desconecte el cliente
+        timeout.tv_sec = 5;
+        timeout.tv_usec = 0;
+        setsockopt(client_fd, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
+
         if (client_fd == -1) {
             perror("[FIFO] accept cancelado o falló");
             break;

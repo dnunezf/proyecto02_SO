@@ -108,6 +108,17 @@
                 max-width: 80%;
             }
         }
+
+        #Notform {
+            background: #ffffffcc;
+            padding: 25px 35px;
+            border-radius: 12px;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
     </style>
 </head>
 <body>
@@ -118,7 +129,11 @@
     <main>
         <h2>Servidor activo y esperando archivos</h2>
         <img src="https://gifdb.com/images/high/sleepy-fox-laying-down-1oiqb7awgs323fo7.gif" alt="Zorro descansando">
-
+        <div id="Notform"> <!--No es un formulario-->
+            <input type="text" id="filename" placeholder="Nombre + extension">
+            <button onclick="goToFile()">Buscar archivo</button>
+        </div>
+        <br>
         <form id="uploadForm">
             <input type="file" id="fileInput" name="file" required>
             <button type="submit">Subir archivo</button>
@@ -130,8 +145,9 @@
     </footer>
 
     <script>
+        //Subir el archivo al sistema
         document.getElementById('uploadForm').addEventListener('submit', async function (e) {
-            e.preventDefault(); // prevent normal form submit
+            e.preventDefault(); //Se evitan las cabeceras feas del WebToolKit :)
 
             const fileInput = document.getElementById('fileInput');
             const file = fileInput.files[0];
@@ -167,6 +183,13 @@
                 }
             }
         });
+        //Buscar el archivo
+        function goToFile() {
+            const filename = document.getElementById('filename').value.trim();
+            if (filename) {
+                window.location.href = '/' + encodeURIComponent(filename);
+            }
+        }
     </script>
 </body>
 </html>

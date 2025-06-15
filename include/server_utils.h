@@ -15,7 +15,7 @@
 #ifndef SERVER_UTILS_H
 #define SERVER_UTILS_H
 #define RESOURCE_DIR "../resources"
-#define CHUNK_SIZE 65536
+#define CHUNK_SIZE 15000000
 
 #include <stdio.h>
 #include <string.h>
@@ -35,39 +35,6 @@ static long get_time_ms() {
     struct timeval tv;
     gettimeofday(&tv, NULL);
     return (tv.tv_sec * 1000L) + (tv.tv_usec / 1000L);
-}
-
-static int handle_upload(const char* filepath, const int client_fd, const char* body_start, const int body_bytes, const int content_length) {
-
-    FILE *out = fopen(filepath, "wb");
-    if (!out) {
-        perror("fopen");
-        printf("1X");
-        return 1;
-    }
-
-    // Write initial body bytes already in buffer
-    fwrite(body_start, 1, body_bytes, out);
-
-    // Continue reading remaining body bytes
-    int remaining = content_length - body_bytes;
-    char chunk[CHUNK_SIZE];
-    while (remaining > 0) {
-        const int to_read = remaining > CHUNK_SIZE ? CHUNK_SIZE : remaining;
-        const int n = recv(client_fd, chunk, to_read, 0);
-        if (n <= 0) break;
-        fwrite(chunk, 1, n, out);
-        remaining -= n;
-    }
-
-    const char *ok_response =
-        "HTTP/1.1 200 OK\r\n"
-        "Content-Type: text/html\r\n\r\n"
-        "<html><body><h1>Archivo subido :)</h1></body></html>\r\n";
-    send(client_fd, ok_response, strlen(ok_response), 0);
-    fclose(out);
-    pthread_mutex_unlock(&writingMutex);
-    return 0;
 }
 
 static void handle_send(FILE *file, const char* resource, const int client_fd) {
@@ -106,34 +73,75 @@ static void handle_send(FILE *file, const char* resource, const int client_fd) {
         }
     }
 }
-/*char buffer[4096];
-int bytes_read = recv(client_fd, buffer, sizeof(buffer) - 1, 0);
 
-if (bytes_read <= 0) {
-    perror("recv");
-    return;
+static int handle_upload(const char* filepath, const int client_fd, const char* body_start, const int body_bytes, const int content_length) {
+    FILE *out = fopen(filepath, "wb");
+    if (!out) {
+        perror("fopen");
+
+        return 1;
+    }
+
+    // Escribir los primeros bytes que ya estaban en el buffer
+    fwrite(body_start, 1, body_bytes, out);
+
+    // Leer el resto del cuerpo
+    int total_written = body_bytes;
+    int remaining = content_length - body_bytes;
+    char chunk[CHUNK_SIZE];
+
+    while (remaining > 0) {
+        printf("Remaining: %d\n", remaining);
+        int to_read = remaining > CHUNK_SIZE ? CHUNK_SIZE : remaining;
+        int n = recv(client_fd, chunk, to_read, 0);
+
+        if (n <= 0) {
+            printf("Se murio el cliente :(\nEliminando: %s\n",filepath);
+            perror("recv (durante POST)");
+            fclose(out);
+            remove(filepath);  // Elimina archivo incompleto
+
+            const char *error_response =
+                "HTTP/1.1 400 Bad Request\r\n"
+                "Content-Type: text/html\r\n\r\n"
+                "<html><body><h1>Error: conexión interrumpida o incompleta.</h1></body></html>\r\n";
+            send(client_fd, error_response, strlen(error_response), 0);
+
+            return 1;
+        }
+
+        fwrite(chunk, 1, n, out);
+        total_written += n;
+        remaining -= n;
+    }
+
+    fclose(out);
+
+    if (total_written != content_length) {
+        //verifica que se escribió exactamente lo esperado
+        remove(filepath);
+        printf("Se murio el cliente :(\nEliminando: %s\n",filepath);
+        const char *error_response =
+            "HTTP/1.1 400 Bad Request\r\n"
+            "Content-Type: text/html\r\n\r\n"
+            "<html><body><h1>Error: datos incompletos.</h1></body></html>\r\n";
+        send(client_fd, error_response, strlen(error_response), 0);
+        pthread_mutex_unlock(&writingMutex);
+        return 1;
+    }
+
+    const char *ok_response =
+        "HTTP/1.1 200 OK\r\n"
+        "Content-Type: text/html\r\n\r\n"
+        "<html><body><h1>Archivo subido :)</h1></body></html>\r\n";
+    send(client_fd, ok_response, strlen(ok_response), 0);
+
+    printf("Paso algo\n");
+    pthread_mutex_unlock(&writingMutex);
+    return 0;
 }
 
-buffer[bytes_read] = '\0';
-printf("[FIFO] Request recibido:\n%s\n", buffer);
 
-char method[8], path[256];
-sscanf(buffer, "%s %s", method, path);
-
-char resource[256];
-if (strcmp(path, "/") == 0 || strcmp(path, "/favicon.ico") == 0) {
-    strcpy(resource, "index.html");
-} else {
-    strncpy(resource, path + 1, sizeof(resource) - 1);
-    resource[sizeof(resource) - 1] = '\0';
-}
-
-char filepath[512];
-snprintf(filepath, sizeof(filepath), "%s/%s", RESOURCE_DIR, resource);
-
-printf("[FIFO] Buscando archivo: %s\n", filepath);
-
-FILE *file = fopen(filepath, "rb");*/
 
 static void handle_client(const int client_fd) {
     char buffer[CHUNK_SIZE];
@@ -154,16 +162,18 @@ static void handle_client(const int client_fd) {
         return;
     }
 
-    // Extract method, path, and Content-Length
+    // Extaer method, path, y Content-Length
     char method[8], path[256];
     sscanf(buffer, "%s %s", method, path);
     printf("%s %s\n", method, path);
 
     char *content_length_str = strstr(buffer, "Content-Length: ");
-    int content_length = 0;
+
+    unsigned int content_length = 0;
     if (content_length_str) {
         sscanf(content_length_str, "Content-Length: %d", &content_length);
     }
+    printf("Contenido: %u\n",content_length);
 
     char *body_start = strstr(buffer, "\r\n\r\n");
     body_start = strstr(body_start, "\r\n\r\n");
@@ -196,19 +206,8 @@ static void handle_client(const int client_fd) {
     // Reject if file already exists
     FILE *file = fopen(filepath, "rb");
 
-    if (file && strcmp(method, "GET") == 0) handle_send(file, resource, client_fd);
-    else if (!file && strcmp(method, "POST") == 0) handle_upload(filepath, client_fd, body_start, body_bytes, content_length);
-    else if (!file && strcmp(method, "GET") == 0) {
-        printf("[FIFO] No existe: %s\n", filepath);
-        const char *not_found_response =
-            "HTTP/1.1 404 Not Found\r\n"
-            "Content-Type: text/html\r\n\r\n"
-            "<html><body><h1>404 Recurso no encontrado :(</h1></body></html>\r\n";
-        send(client_fd, not_found_response, strlen(not_found_response), 0);
-        return;
-    }
-    else if (file && strcmp(method, "POST") == 0) {
-        printf("[FIFO] Ya existe: %s\n", filepath);
+    if (file && strcmp(method, "POST") == 0) {
+        printf("Ya existe: %s\n", filepath);
         const char *not_found_response =
             "HTTP/1.1 400 Bad request\r\n"
             "Content-Type: text/html\r\n\r\n"
@@ -216,6 +215,24 @@ static void handle_client(const int client_fd) {
         send(client_fd, not_found_response, strlen(not_found_response), 0);
         return;
     }
+    pthread_mutex_unlock(&writingMutex);
+
+    if (file && strcmp(method, "GET") == 0) handle_send(file, resource, client_fd);
+    else if (!file && strcmp(method, "POST") == 0) {
+        handle_upload(filepath, client_fd, body_start, body_bytes, content_length);
+
+        printf("Mutex liberado\n");
+    }
+    else if (!file && strcmp(method, "GET") == 0) {
+        printf("No existe: %s\n", filepath);
+        const char *not_found_response =
+            "HTTP/1.1 404 Not Found\r\n"
+            "Content-Type: text/html\r\n\r\n"
+            "<html><body><h1>404 Recurso no encontrado :(</h1></body></html>\r\n";
+        send(client_fd, not_found_response, strlen(not_found_response), 0);
+        return;
+    }
+
     long end = get_time_ms();
     long TTA = end - start;
     printf("Request procesado en: %ld ms, %ld s\n", TTA, TTA/1000);

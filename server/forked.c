@@ -91,6 +91,11 @@ void run_forked() {
     // Bucle infinito: aceptar y atender un cliente a la vez
     while (1) {
         client_fd = accept(server_fd_global_forked, (struct sockaddr *)&client_addr, &client_size);
+        struct timeval timeout; //Procesar timeout en caso de que se desconecte el cliente
+        timeout.tv_sec = 5;
+        timeout.tv_usec = 0;
+        setsockopt(client_fd, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
+
         if (client_fd == -1) {
             perror("[FORKED] accept cancelado o falló");
             break;

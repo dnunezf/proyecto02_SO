@@ -196,6 +196,11 @@ void run_pre_forked(int k) {
             // Cada hijo atiende indefinidamente
             while (1) {
                 int client_fd = accept(server_fd, (struct sockaddr *)&client_addr, &client_size);
+                struct timeval timeout; //Procesar timeout en caso de que se desconecte el cliente
+                timeout.tv_sec = 5;
+                timeout.tv_usec = 0;
+                setsockopt(client_fd, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
+
                 if (client_fd == -1) {
                     perror("accept");
                     continue;
