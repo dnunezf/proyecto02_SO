@@ -20,25 +20,12 @@
 #include <arpa/inet.h>
 #include <netinet/in.h>
 #include <sys/socket.h>
-#include <stdbool.h>
-
-#define BUFFER_SIZE 4096
-#define MAX_STR_LEN 100
 #include <sys/time.h>
 
-unsigned int THREADS, NUM_REQUESTS, SERVER_PORT;
-char FILE_NAME[MAX_STR_LEN];
-char SERVER_IP[MAX_STR_LEN];
+#define BUFFER_SIZE 3000000 //Tres megas
+#define MAX_STR_LEN 100
 
 
-
-long get_time_ms() {
-    struct timeval tv;
-    gettimeofday(&tv, NULL);
-    return (tv.tv_sec * 1000L) + (tv.tv_usec / 1000L);
-}
-
-// Definición del nodo
 typedef struct Nodo {
     long valor;
     struct Nodo* siguiente;
@@ -48,6 +35,25 @@ typedef struct Nodo {
 typedef struct Lista {
     Nodo* cabeza;
 } Lista;
+
+
+unsigned int THREADS, NUM_REQUESTS, SERVER_PORT;
+char FILE_NAME[MAX_STR_LEN];
+char SERVER_IP[MAX_STR_LEN];
+Lista tiemposAtencion;
+Lista tiemposEspera;
+pthread_mutex_t mutex;
+unsigned long long BytesTotal = 0;
+long reqNum = 0;
+
+
+long get_time_ms() {
+    struct timeval tv;
+    gettimeofday(&tv, NULL);
+    return (tv.tv_sec * 1000L) + (tv.tv_usec / 1000L);
+}
+
+// Definición del nodo
 
 // Función para inicializar la lista
 void inicializarLista(Lista* lista) {
@@ -141,18 +147,14 @@ void parse_args(int argc, char *argv[]) {
 
 }
 
-Lista tiemposAtencion;
-Lista tiemposEspera;
-pthread_mutex_t mutex;
-unsigned long long BytesTotal = 0;
-long reqNum = 0;
+
 // Procedimiento que ejecutará cada hilo
 void* http_thread_routine(void* arg) {
 
     long espera[2];
     long atencion[2];
 
-    printf("Thread corriendo: %ld.\n", (long)arg);
+    printf("Thread corriendo: %d.\n", (int)arg);
     for (unsigned int i = 0; i < NUM_REQUESTS; i++) {
 
         int sock_fd;
@@ -194,24 +196,11 @@ void* http_thread_routine(void* arg) {
 
         // Leer respuesta
         int bytes_received;
-        int header_parsed = 0;
-        char *body_start = NULL;
         unsigned long long contBytes = 0;
 
         while ((bytes_received = recv(sock_fd, buffer, BUFFER_SIZE - 1, 0)) > 0) {
             contBytes += bytes_received;
             buffer[bytes_received] = '\0';
-            /*if (!header_parsed) {
-                body_start = strstr(buffer, "\r\n\r\n");
-                if (body_start) {
-                    body_start += 4; // Skip past headers
-                    printf("%s", body_start); // Print body starting from here
-                    header_parsed = 1;
-                }
-                // If headers not yet complete, skip printing
-            } else {
-                printf("%s", buffer); // Print rest of body
-            }*/
         }
         atencion[1] = get_time_ms();
 
@@ -238,7 +227,7 @@ int main(int argc, char *argv[]) {
     long start = get_time_ms();
     inicializarLista(&tiemposAtencion);
     inicializarLista(&tiemposEspera);
-    for (unsigned int i = 0; i < THREADS; i++) {
+    for (int i = 0; i < THREADS; i++) {
         if (pthread_create(&threads[i], NULL, http_thread_routine, (void*)i) != 0) {
             perror("pthread_create");
             exit(EXIT_FAILURE);
@@ -251,7 +240,7 @@ int main(int argc, char *argv[]) {
     }
 
     long end = get_time_ms();
-    long TTA = end - start;
+    long TTA = tiemposEspera.cabeza == NULL ? 0 : end - start; //Si no hay tiempos de espera, no se hizo ninguna lectura
 
     unsigned long TEM = calcularMedia(&tiemposEspera);
     unsigned long TEV = calcularVarianza(&tiemposEspera);
@@ -262,12 +251,12 @@ int main(int argc, char *argv[]) {
     printf("Varianza de tiempos de espera: %ld ms, %ld s\n",TEV, TEV/1000 );
     printf("Tiempo de atencion promedio: %ld ms, %ld s\n",TAM, TAM/1000 );
     printf("Varianza de tiempo de atencion: %ld ms, %ld s\n",TAV, TAV/1000);
-    printf("Total de bytes recibidos: %lu B, %lu MB\n", BytesTotal, BytesTotal/1048576);
-    printf("Numero de requests: %ld\n", reqNum);
+    printf("Total de bytes recibidos: %llu B, %llu MB\n", BytesTotal, BytesTotal/1048576);
+    printf("Numero total de requests: %u\n", THREADS * NUM_REQUESTS);
+    printf("Numero de requests validos: %ld\n", reqNum);
     printf("Numero de perdidas: %ld\n", (THREADS * NUM_REQUESTS) - reqNum);
 
     pthread_mutex_destroy(&mutex);
     return 0;
 }
-
 

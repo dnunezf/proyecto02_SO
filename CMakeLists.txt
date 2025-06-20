@@ -19,7 +19,6 @@ set(SERVER_SOURCES
 # Archivos del cliente
 set(CLIENT_SOURCES
         Client/client.c
-        Client/statistics.c
 )
 
 # Crea ejecutable para el servidor

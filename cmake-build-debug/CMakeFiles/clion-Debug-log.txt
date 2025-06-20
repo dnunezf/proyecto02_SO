@@ -1,10 +1,4 @@
 /home/f0x/clion-2025.1.1/bin/cmake/linux/x64/bin/cmake -DCMAKE_BUILD_TYPE=Debug -G "Unix Makefiles" -S /home/f0x/CLionProjects/proyecto02_SO -B /home/f0x/CLionProjects/proyecto02_SO/cmake-build-debug
--- The C compiler identification is GNU 13.3.0
--- Detecting C compiler ABI info
--- Detecting C compiler ABI info - done
--- Check for working C compiler: /usr/bin/cc - skipped
--- Detecting C compile features
--- Detecting C compile features - done
--- Configuring done (0.4s)
--- Generating done (0.0s)
+-- Configuring done (0.1s)
+-- Generating done (0.1s)
 -- Build files have been written to: /home/f0x/CLionProjects/proyecto02_SO/cmake-build-debug

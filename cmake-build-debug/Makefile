@@ -166,30 +166,6 @@ Client/client.c.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/client_exec.dir/build.make CMakeFiles/client_exec.dir/Client/client.c.s
 .PHONY : Client/client.c.s
 
-Client/statistics.o: Client/statistics.c.o
-.PHONY : Client/statistics.o
-
-# target to build an object file
-Client/statistics.c.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/client_exec.dir/build.make CMakeFiles/client_exec.dir/Client/statistics.c.o
-.PHONY : Client/statistics.c.o
-
-Client/statistics.i: Client/statistics.c.i
-.PHONY : Client/statistics.i
-
-# target to preprocess a source file
-Client/statistics.c.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/client_exec.dir/build.make CMakeFiles/client_exec.dir/Client/statistics.c.i
-.PHONY : Client/statistics.c.i
-
-Client/statistics.s: Client/statistics.c.s
-.PHONY : Client/statistics.s
-
-# target to generate assembly for a file
-Client/statistics.c.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/client_exec.dir/build.make CMakeFiles/client_exec.dir/Client/statistics.c.s
-.PHONY : Client/statistics.c.s
-
 server/fifo.o: server/fifo.c.o
 .PHONY : server/fifo.o
 
@@ -347,9 +323,6 @@ help:
 	@echo "... Client/client.o"
 	@echo "... Client/client.i"
 	@echo "... Client/client.s"
-	@echo "... Client/statistics.o"
-	@echo "... Client/statistics.i"
-	@echo "... Client/statistics.s"
 	@echo "... server/fifo.o"
 	@echo "... server/fifo.i"
 	@echo "... server/fifo.s"

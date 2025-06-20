@@ -109,7 +109,7 @@
             }
         }
 
-        #Notform {
+        .Notform {
             background: #ffffffcc;
             padding: 25px 35px;
             border-radius: 12px;
@@ -129,9 +129,10 @@
     <main>
         <h2>Servidor activo y esperando archivos</h2>
         <img src="https://gifdb.com/images/high/sleepy-fox-laying-down-1oiqb7awgs323fo7.gif" alt="Zorro descansando">
-        <div id="Notform"> <!--No es un formulario-->
+        <div class="Notform"> <!--No es un formulario-->
             <input type="text" id="filename" placeholder="Nombre + extension">
-            <button onclick="goToFile()">Buscar archivo</button>
+            <button onclick="goToFile()">Descargar archivo</button>
+            <button onclick="goToFileCheck()">Ver archivo</button>
         </div>
         <br>
         <form id="uploadForm">
@@ -188,6 +189,13 @@
             const filename = document.getElementById('filename').value.trim();
             if (filename) {
                 window.location.href = '/' + encodeURIComponent(filename);
+            }
+        }
+
+        function goToFileCheck() {
+            const filename = document.getElementById('filename').value.trim();
+            if (filename) {
+                window.location.href = '/media/' + encodeURIComponent(filename);
             }
         }
     </script>
